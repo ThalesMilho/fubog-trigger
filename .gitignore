@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ambiente Virtual
+venv/
+env/
+
+# Variáveis de Ambiente (SEGURANÇA MÁXIMA)
+.env
+
+# Banco de Dados (DADOS SENSÍVEIS)
+db.sqlite3
+
+# Logs
+*.log
+
+# OS
+.DS_Store

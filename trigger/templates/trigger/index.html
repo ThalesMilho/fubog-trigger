@@ -1,0 +1,144 @@
+{% load static %}
+{% load fubog_extras %} <!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Disparador FUBOG</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        :root { --fubog-blue: #003366; --fubog-green: #00A859; --fubog-light: #f4f7f6; }
+        body { font-family: 'Poppins', sans-serif; background-color: var(--fubog-light); min-height: 100vh; }
+        .navbar-fubog { background-color: #fff; border-bottom: 3px solid var(--fubog-green); padding: 10px 0; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); background: #fff; margin-bottom: 20px; }
+        .card-header-custom { background-color: var(--fubog-blue); color: white; padding: 15px; font-weight: 600; border-radius: 12px 12px 0 0; }
+        .btn-green { background-color: var(--fubog-green); color: white; border: none; font-weight: bold; text-transform: uppercase; }
+        .btn-green:hover { background-color: #008f4c; color: white; }
+        .number-badge { background-color: #e8f5e9; color: var(--fubog-green); padding: 8px 12px; border-radius: 6px; font-weight: 600; display: block; width: 100%; text-align: center; border: 1px solid #c8e6c9;}
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-fubog">
+        <div class="container d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <img src="{% static 'img/logo-fubog.png' %}" alt="FUBOG" height="60">
+            </div>
+            
+            <div class="d-flex align-items-center gap-3">
+                <div class="d-none d-md-block text-end">
+                    <small class="d-block text-secondary" style="font-size: 0.75rem;">OPERANDO COMO</small>
+                    <span class="fw-bold text-success"><i class="fa-brands fa-whatsapp"></i> {{ numero_atual }}</span>
+                </div>
+                <a href="{% url 'sair' %}" class="btn btn-outline-secondary btn-sm" title="Trocar Número/Sair">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card card-custom h-100">
+                    <div class="card-header-custom bg-secondary d-flex justify-content-between align-items-center">
+                        <span>Adicionar Número</span>
+                        <span class="badge bg-white text-dark">{{ lista_contatos.count }}</span>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" class="mb-3">
+                            {% csrf_token %}
+                            <div class="input-group">
+                                {{ form_contato.telefone }}
+                                <button type="submit" name="btn_salvar" class="btn btn-secondary">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                        </form>
+
+                        <div style="max-height: 350px; overflow-y: auto;" class="mb-3">
+                            {% if lista_contatos %}
+                                <div class="d-flex flex-column gap-2">
+                                    {% for c in lista_contatos %}
+                                        <span class="number-badge">
+                                            <i class="fa-brands fa-whatsapp me-2"></i> {{ c.telefone }}
+                                        </span>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center text-muted py-4">
+                                    <i class="fa-solid fa-inbox fs-1 mb-2 opacity-25"></i><br>
+                                    Lista vazia
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        {% if lista_contatos %}
+                            {% if request.user|has_group:"Time de TI" or request.user.is_superuser %}
+                                <form method="post" onsubmit="return confirm('ATENÇÃO TI: Isso apagará toda a lista do banco de dados. Confirmar?');">
+                                    {% csrf_token %}
+                                    <button type="submit" name="btn_limpar" class="btn btn-outline-danger w-100 btn-sm">
+                                        <i class="fa-solid fa-trash me-2"></i> LIMPAR TUDO (Restrito TI)
+                                    </button>
+                                </form>
+                            {% endif %}
+                        {% endif %}
+                        </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card card-custom h-100">
+                    <div class="card-header-custom">
+                        <i class="fa-regular fa-paper-plane me-2"></i> Enviar Mensagem
+                    </div>
+                    <div class="card-body p-4">
+                        
+                        <div class="alert alert-warning border-0 d-flex align-items-center mb-4">
+                            <i class="fa-solid fa-stopwatch fs-3 me-3"></i>
+                            <div>
+                                <strong>Aguarde o envio!</strong><br>
+                                O sistema pausa entre <strong>10s e 30s</strong> a cada mensagem.
+                            </div>
+                        </div>
+
+                        <form method="post">
+                            {% csrf_token %}
+                            
+                            <div class="mb-4">
+                                <label class="fw-bold mb-2 text-secondary">Texto da Mensagem</label>
+                                {{ form_msg.mensagem }}
+                            </div>
+
+                            <div class="form-check mb-4 p-3 bg-light rounded border">
+                                {{ form_msg.confirmacao }}
+                                <label class="form-check-label ms-1" for="id_confirmacao">
+                                    Estou ciente da espera.
+                                </label>
+                            </div>
+
+                            <button type="submit" name="btn_enviar" class="btn btn-green w-100 py-3 fs-4 shadow-sm" {% if not lista_contatos %}disabled{% endif %}>
+                                <i class="fa-solid fa-paper-plane me-2"></i> DISPARAR
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
