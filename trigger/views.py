@@ -1,16 +1,19 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout 
+from django.http import JsonResponse
 from .forms import ContatoForm, MensagemForm, LoginForm
-from .models import Contato, Disparo
+from .models import Contato, Disparo, InstanciaZap
 from .services.uazapi_client import UazApiClient
 import time
 import random
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 # --- VIEW 1: LOGIN (Lê do .env) ---
 def configurar(request):
-    # Se já está logado, vai pro dashboard
     if request.user.is_authenticated:
         return redirect('dashboard')
 
@@ -127,4 +130,65 @@ def dashboard(request):
         'form_msg': form_msg,
         'lista_contatos': lista_contatos,
         'numero_atual': numero_atual 
+    })
+
+# --- VIEW 4: CONEXÃO WHATSAPP ---
+def conectar_whatsapp(request):
+    client = UazApiClient()
+    
+    # 1. Se já estiver conectado, avisa e volta
+    if client.verificar_status():
+        messages.success(request, "A instância já está conectada e pronta!")
+        # Atualiza o status no banco se existir
+        instancia = InstanciaZap.objects.first()
+        if instancia:
+            instancia.conectado = True
+            instancia.save()
+        return redirect('configurar')
+
+    # 2. Busca o QR Code
+    dados_qr = client.obter_qr_code()
+    qr_code_img = None
+    erro_qr = None
+    
+    if dados_qr:
+        if 'error' in dados_qr and dados_qr['error']:
+            erro_qr = dados_qr.get('details', 'Erro desconhecido ao gerar QR')
+        elif 'base64' in dados_qr:
+            qr_code_img = dados_qr['base64']
+        else:
+            # Tenta alternativas de chaves que a API pode retornar
+            qr_code_img = dados_qr.get('qrcode') or dados_qr.get('qr') or str(dados_qr)
+    else:
+        erro_qr = "Falha crítica ao buscar QR Code"
+    
+    if erro_qr:
+        messages.error(request, f"Erro: {erro_qr}")
+    
+    return render(request, 'trigger/conexao.html', {
+        'qr_code': qr_code_img,
+        'instancia_nome': client.instance_id,
+        'erro_qr': erro_qr
+    })
+
+# --- VIEW 5: VERIFICAR STATUS VIA AJAX (para polling) ---
+def verificar_conexao_api(request):
+    """
+    Endpoint AJAX para verificar se a instância foi conectada.
+    Retorna JSON com status de conexão e atualiza BD se conectado.
+    """
+    client = UazApiClient()
+    conectado = client.verificar_status()
+    
+    if conectado:
+        # Atualiza o BD para marcar como conectado
+        instancia = InstanciaZap.objects.first()
+        if instancia:
+            instancia.conectado = True
+            instancia.save()
+            logger.info(f"Instância {instancia.nome_operador} marcada como conectada")
+    
+    return JsonResponse({
+        'conectado': conectado,
+        'instancia_id': client.instance_id
     })

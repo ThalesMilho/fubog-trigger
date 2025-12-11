@@ -8,8 +8,8 @@ class InstanciaZap(models.Model):
     numero_telefone = models.CharField(max_length=20, help_text="Apenas referência visual")
     
     # Credenciais da API
-    instancia_id = models.CharField(max_length=100, help_text="ID da Instância na UazAPI")
-    token = models.CharField(max_length=255, help_text="Token da Instância")
+    instancia_id = models.CharField(max_length=100, help_text="r92424209e72cb5")
+    token = models.CharField(max_length=255, help_text="c3f4ee8f-f203-4482-9b38-a5c218c88617")
     
     conectado = models.BooleanField(default=False)
     ultima_atualizacao = models.DateTimeField(auto_now=True)
