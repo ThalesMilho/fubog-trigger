@@ -2,20 +2,18 @@
 # Sair se houver erro
 set -o errexit
 
-# Instalar dependências
 pip install -r requirements.txt
 
-# Coletar estáticos
 python manage.py collectstatic --no-input
 
-# Criar banco de dados (SQLite)
+# 1. Cria as tabelas vazias
 python manage.py migrate
 
-# --- COMANDO DE SALVAÇÃO ---
-# Cria o usuário admin automaticamente se ele não existir
+# 2. Preenche a configuração da Uazapi (NOVO)
+python manage.py setup_instance
+
+# 3. Cria o usuário Admin (que já configuramos antes)
 echo "Criando superusuário automático..."
-# O comando abaixo cria o usuário 'admin' com email 'admin@fubog.com'
-# A senha será definida via variável ou usará um padrão se falhar
 if [[ -n "$DJANGO_SUPERUSER_USERNAME" ]]; then
     python manage.py createsuperuser --noinput || true
 fi
