@@ -60,39 +60,25 @@ class UazApiClient:
 
     def obter_qr_code(self):
         """
-        Gera QR Code.
-        CORREÇÃO SÊNIOR: Tenta POST e depois GET para garantir compatibilidade
-        com qualquer versão do servidor dedicado.
+        Gera QR Code conforme Doc Oficial:
+        POST /instance/connect (Sem ID na URL)
         """
-        # Endpoint padrão com ID (Formato mais seguro para dedicados)
-        endpoint = f"{self.base_url}/instance/connect/{self.instance_id}"
+        # A URL exata da documentação
+        endpoint = f"{self.base_url}/instance/connect"
         
         try:
-            logger.info(f"[UAZAPI] Tentativa 1 (POST) em: {endpoint}")
+            logger.info(f"[UAZAPI] Solicitando QR (POST) em: {endpoint}")
             
-            # 1. Tenta via POST (Padrão Documentação Nova)
+            # Payload vazio ({}) força a geração do QR Code (se omitir o phone)
+            # O Token no self.headers é quem autentica a instância
             response = requests.post(endpoint, json={}, headers=self.headers, timeout=20)
 
-            # 2. Se o servidor disser que a rota não existe (404) ou método errado (405)
-            # Tenta via GET (Padrão Legado/Evolution V1)
-            if response.status_code in [404, 405]:
-                logger.warning(f"[UAZAPI] POST falhou ({response.status_code}). Tentando GET (Legado)...")
-                response = requests.get(endpoint, headers=self.headers, timeout=20)
-
-            # 3. Análise Final
             if response.status_code != 200:
-                msg_erro = f"Erro API {response.status_code}: {response.text}"
-                logger.error(f"[UAZAPI] Falha de conexão: {msg_erro}")
-                
-                # Se persistir o 404, a instância wckRx6 realmente não existe no servidor
-                if response.status_code == 404:
-                    return {"error": True, "details": f"Instância '{self.instance_id}' não encontrada no servidor."}
-                
-                return {"error": True, "details": msg_erro}
+                return {"error": True, "details": f"Erro API {response.status_code}: {response.text}"}
 
             dados = response.json()
             
-            # 4. Busca o QR Code (Parser Híbrido)
+            # Busca o base64 (A doc diz que retorna o objeto da instância)
             qr = dados.get('base64') or dados.get('qrcode') or \
                  dados.get('instance', {}).get('qrcode') or \
                  dados.get('instance', {}).get('qr')
@@ -102,17 +88,21 @@ class UazApiClient:
             
             return {
                 "error": True, 
-                "details": "Conectado, mas QR não retornado (Verifique se já está pareado).", 
+                "details": "QR não retornado (Verifique se já está conectado).", 
                 "raw": dados
             }
 
         except Exception as e:
-            logger.error(f"[UAZAPI] Erro crítico QR: {e}")
+            logger.error(f"[UAZAPI] Erro QR: {e}")
             return {"error": True, "details": str(e)}
 
     def verificar_status(self):
-        """Verifica se está conectado e atualiza o banco local"""
-        endpoint = f"{self.base_url}/instance/connectionState/{self.instance_id}"
+        """
+        Verifica status conforme Doc Oficial:
+        GET /instance/status (Sem ID na URL)
+        """
+        endpoint = f"{self.base_url}/instance/status"
+        
         try:
             response = requests.get(endpoint, headers=self.headers, timeout=10)
             
@@ -120,23 +110,19 @@ class UazApiClient:
                 dados = response.json()
                 state = None
                 
-                # Parser robusto de estado
+                # A doc diz que retorna "Detalhes completos da instância"
                 if isinstance(dados, dict):
-                    if 'instance' in dados and isinstance(dados['instance'], dict):
+                    if 'instance' in dados:
                         state = dados['instance'].get('state')
                     elif 'state' in dados:
                         state = dados.get('state')
                 
                 conectado = state in ['open', 'connected']
-                self._atualizar_status_db(conectado)
+                self._atualizar_db(conectado)
                 return conectado
             
-            if response.status_code == 404:
-                logger.warning(f"[UAZAPI] Instância {self.instance_id} não encontrada no servidor.")
-                
             return False
-        except Exception as e:
-            logger.error(f"[UAZAPI] Erro ao verificar status: {e}")
+        except:
             return False
 
     def desconectar_instancia(self):
