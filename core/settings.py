@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+import dj_database_url 
 
 # Carrega variáveis do .env
 load_dotenv()
@@ -11,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-chave-padrao-apenas-para-dev')
 
 # QA: DEBUG deve ser False em prod, mas True para seu colega testar o QR Code localmente
-DEBUG = 'True'
+DEBUG = 'RENDER' not in os.environ
 
 # SECURITY: Permite qualquer host se DEBUG=True, ou define domínios específicos
 ALLOWED_HOSTS = ['*'] 
@@ -35,6 +36,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # <--- AQUI
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -57,10 +59,10 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
+        conn_max_age=600
+    )
 }
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -79,5 +81,12 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'core' / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles' # Necessário para produção
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Expira a sessão do usuário após 1200 segundos (20 minutos) de inatividade.
+SESSION_COOKIE_AGE = 20 * 60 
+
+# Faz com que a sessão expire quando o navegador for fechado
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True

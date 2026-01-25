@@ -67,9 +67,9 @@
         </form>
         
         <div class="mt-4 mb-3">
-            <p class="text-muted small mb-2">Precisa reconectar o WhatsApp?</p>
-            <a href="{% url 'conectar_whatsapp' %}" class="btn btn-outline-dark w-100 rounded-pill py-2">
-                <i class="fa-solid fa-qrcode me-2"></i> CONECTAR INSTÂNCIA (QR)
+            <p class="text-muted small mb-2">Precisa reconectar ou a instância travou?</p>
+            <a href="{% url 'conectar_whatsapp' %}?force=true" class="btn btn-outline-dark w-100 rounded-pill py-2">
+                <i class="fa-solid fa-qrcode me-2"></i> CONECTAR INSTÂNCIA (FORÇAR)
             </a>
         </div>
         <div class="mt-4 pt-3 border-top">

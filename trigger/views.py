@@ -39,8 +39,24 @@ def configurar(request):
 
 # --- VIEW 2: SAIR ---
 def sair(request):
-    Contato.objects.all().delete() # Limpa a lista ao sair
+    client = UazApiClient() # Inicializa o cliente da API
+    
+    # 1. Tenta desconectar a sessão do WhatsApp na API
+    client.desconectar_instancia() 
+
+    # 2. Limpa o registro local de conexão (opcional, mas bom)
+    instancia = InstanciaZap.objects.first()
+    if instancia:
+        instancia.conectado = False
+        instancia.save()
+
+    # 3. Limpa a lista de contatos (já existia)
+    Contato.objects.all().delete() 
+    
+    # 4. Desloga o usuário do Django
     logout(request)
+    
+    messages.info(request, "Sessão encerrada e WhatsApp desconectado.")
     return redirect('configurar')
 
 # --- VIEW 3: DASHBOARD ---
@@ -91,7 +107,7 @@ def dashboard(request):
 
                 sucessos = 0
                 total = contatos.count()
-                opcoes_tempo = list(range(10, 31))
+                opcoes_tempo = list(range(8, 21))
                 random.shuffle(opcoes_tempo)
 
                 for index, contato in enumerate(contatos):
@@ -112,7 +128,7 @@ def dashboard(request):
 
                     if index < total - 1:
                         if not opcoes_tempo:
-                            opcoes_tempo = list(range(10, 31))
+                            opcoes_tempo = list(range(8, 21))
                             random.shuffle(opcoes_tempo)
                         time.sleep(opcoes_tempo.pop())
 
@@ -133,38 +149,50 @@ def dashboard(request):
     })
 
 # --- VIEW 4: CONEXÃO WHATSAPP ---
+# Em trigger/views.py
+
+# Cole isso no trigger/views.py, substituindo a função conectar_whatsapp antiga
+
 def conectar_whatsapp(request):
     client = UazApiClient()
     
-    # 1. Se já estiver conectado, avisa e volta
-    if client.verificar_status():
-        messages.success(request, "A instância já está conectada e pronta!")
-        # Atualiza o status no banco se existir
-        instancia = InstanciaZap.objects.first()
-        if instancia:
-            instancia.conectado = True
-            instancia.save()
-        return redirect('configurar')
+    # 1. Verifica se forçaram a reconexão pela URL (?force=true)
+    forcar = request.GET.get('force') == 'true'
+    
+    # 2. Se não forçado e já estiver conectado, manda pro painel
+    if not forcar and client.verificar_status():
+        # Sincroniza o banco local
+        InstanciaZap.objects.update_or_create(
+            instancia_id=client.instance_id,
+            defaults={'conectado': True}
+        )
+        messages.success(request, "WhatsApp já está conectado!")
+        return redirect('dashboard')
 
-    # 2. Busca o QR Code
-    dados_qr = client.obter_qr_code()
+    # 3. Pede o QR Code
+    resultado = client.obter_qr_code()
+    
     qr_code_img = None
     erro_qr = None
     
-    if dados_qr:
-        if 'error' in dados_qr and dados_qr['error']:
-            erro_qr = dados_qr.get('details', 'Erro desconhecido ao gerar QR')
-        elif 'base64' in dados_qr:
-            qr_code_img = dados_qr['base64']
-        else:
-            # Tenta alternativas de chaves que a API pode retornar
-            qr_code_img = dados_qr.get('qrcode') or dados_qr.get('qr') or str(dados_qr)
-    else:
-        erro_qr = "Falha crítica ao buscar QR Code"
+    # Lógica para extrair a imagem Base64 do JSON da Uazapi
+    if 'qrcode' in resultado:
+        qr_code_img = resultado['qrcode']
+    elif 'base64' in resultado:
+        qr_code_img = resultado['base64']
+    elif 'instance' in resultado and isinstance(resultado['instance'], dict):
+        # Às vezes vem aninhado em instance > qrcode
+        qr_code_img = resultado['instance'].get('qrcode')
     
-    if erro_qr:
-        messages.error(request, f"Erro: {erro_qr}")
-    
+    # Tratamento de erro
+    if 'error' in resultado and resultado['error']:
+        erro_qr = resultado.get('details', 'Erro de comunicação com a API')
+
+    # 4. Formatação Final da Imagem para o HTML
+    if qr_code_img and not qr_code_img.startswith('data:'):
+        qr_code_img = f"data:image/png;base64,{qr_code_img}"
+
+    # Renderiza usando o template que você já tem
     return render(request, 'trigger/conexao.html', {
         'qr_code': qr_code_img,
         'instancia_nome': client.instance_id,
