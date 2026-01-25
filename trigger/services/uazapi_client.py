@@ -61,31 +61,38 @@ class UazApiClient:
     def obter_qr_code(self):
         """
         Gera QR Code.
-        CORREÇÃO CIRÚRGICA: Endpoint /instance/connect (sem ID na URL).
+        CORREÇÃO SÊNIOR: Tenta POST e depois GET para garantir compatibilidade
+        com qualquer versão do servidor dedicado.
         """
-        # 1. Tenta o endpoint exato da documentação (sem /{id} no final)
-        endpoint = f"{self.base_url}/instance/connect"
+        # Endpoint padrão com ID (Formato mais seguro para dedicados)
+        endpoint = f"{self.base_url}/instance/connect/{self.instance_id}"
         
         try:
-            logger.info(f"[UAZAPI] Solicitando QR (POST) em: {endpoint}")
+            logger.info(f"[UAZAPI] Tentativa 1 (POST) em: {endpoint}")
             
-            # 2. Payload vazio {} força a geração do QR
-            # O Token da instância já vai no Header (self.headers), que identifica quem é quem.
+            # 1. Tenta via POST (Padrão Documentação Nova)
             response = requests.post(endpoint, json={}, headers=self.headers, timeout=20)
 
-            # --- TRATAMENTO DE VERSÃO (FALLBACK) ---
-            # Se der 404 sem o ID, tentamos COM o ID (caso o servidor use versão diferente da doc)
-            if response.status_code == 404:
-                logger.warning("[UAZAPI] Endpoint /connect deu 404. Tentando variante /connect/{id}...")
-                endpoint_v2 = f"{self.base_url}/instance/connect/{self.instance_id}"
-                response = requests.post(endpoint_v2, json={}, headers=self.headers, timeout=20)
+            # 2. Se o servidor disser que a rota não existe (404) ou método errado (405)
+            # Tenta via GET (Padrão Legado/Evolution V1)
+            if response.status_code in [404, 405]:
+                logger.warning(f"[UAZAPI] POST falhou ({response.status_code}). Tentando GET (Legado)...")
+                response = requests.get(endpoint, headers=self.headers, timeout=20)
 
+            # 3. Análise Final
             if response.status_code != 200:
-                return {"error": True, "details": f"Erro API {response.status_code}: {response.text}"}
+                msg_erro = f"Erro API {response.status_code}: {response.text}"
+                logger.error(f"[UAZAPI] Falha de conexão: {msg_erro}")
+                
+                # Se persistir o 404, a instância wckRx6 realmente não existe no servidor
+                if response.status_code == 404:
+                    return {"error": True, "details": f"Instância '{self.instance_id}' não encontrada no servidor."}
+                
+                return {"error": True, "details": msg_erro}
 
             dados = response.json()
             
-            # 3. Busca o QR Code (Mantendo seu parser robusto)
+            # 4. Busca o QR Code (Parser Híbrido)
             qr = dados.get('base64') or dados.get('qrcode') or \
                  dados.get('instance', {}).get('qrcode') or \
                  dados.get('instance', {}).get('qr')
@@ -95,12 +102,12 @@ class UazApiClient:
             
             return {
                 "error": True, 
-                "details": "QR não retornado (Instância já conectada?)", 
+                "details": "Conectado, mas QR não retornado (Verifique se já está pareado).", 
                 "raw": dados
             }
 
         except Exception as e:
-            logger.error(f"[UAZAPI] Erro QR: {e}")
+            logger.error(f"[UAZAPI] Erro crítico QR: {e}")
             return {"error": True, "details": str(e)}
 
     def verificar_status(self):
