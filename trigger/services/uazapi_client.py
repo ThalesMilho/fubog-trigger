@@ -60,46 +60,47 @@ class UazApiClient:
 
     def obter_qr_code(self):
         """
-        Gera o QR Code.
-        CORREÇÃO SÊNIOR: Usa POST conforme documentação oficial.
+        Gera QR Code.
+        CORREÇÃO CIRÚRGICA: Endpoint /instance/connect (sem ID na URL).
         """
-        endpoint = f"{self.base_url}/instance/connect/{self.instance_id}"
+        # 1. Tenta o endpoint exato da documentação (sem /{id} no final)
+        endpoint = f"{self.base_url}/instance/connect"
         
         try:
-            logger.info(f"[UAZAPI] Solicitando QR (POST) para: {self.instance_id}")
+            logger.info(f"[UAZAPI] Solicitando QR (POST) em: {endpoint}")
             
-            # Payload vazio ({}) força a geração do QR Code (sem phone number)
+            # 2. Payload vazio {} força a geração do QR
+            # O Token da instância já vai no Header (self.headers), que identifica quem é quem.
             response = requests.post(endpoint, json={}, headers=self.headers, timeout=20)
 
-            # Tratamento de erros HTTP
+            # --- TRATAMENTO DE VERSÃO (FALLBACK) ---
+            # Se der 404 sem o ID, tentamos COM o ID (caso o servidor use versão diferente da doc)
+            if response.status_code == 404:
+                logger.warning("[UAZAPI] Endpoint /connect deu 404. Tentando variante /connect/{id}...")
+                endpoint_v2 = f"{self.base_url}/instance/connect/{self.instance_id}"
+                response = requests.post(endpoint_v2, json={}, headers=self.headers, timeout=20)
+
             if response.status_code != 200:
-                logger.error(f"[UAZAPI] Erro HTTP ao pedir QR: {response.status_code} - {response.text}")
-                return {
-                    "error": True, 
-                    "details": f"Erro API ({response.status_code}): {response.text}"
-                }
+                return {"error": True, "details": f"Erro API {response.status_code}: {response.text}"}
 
             dados = response.json()
             
-            # SEU PARSER ROBUSTO ORIGINAL (Preservado)
-            # Busca o base64 em qualquer lugar possível do JSON
-            qr_code = None
-            if 'base64' in dados: qr_code = dados['base64']
-            elif 'qrcode' in dados: qr_code = dados['qrcode']
-            elif 'instance' in dados and isinstance(dados['instance'], dict):
-                qr_code = dados['instance'].get('qrcode') or dados['instance'].get('qr')
-            
-            if qr_code:
-                return {"qrcode": qr_code}
+            # 3. Busca o QR Code (Mantendo seu parser robusto)
+            qr = dados.get('base64') or dados.get('qrcode') or \
+                 dados.get('instance', {}).get('qrcode') or \
+                 dados.get('instance', {}).get('qr')
+                 
+            if qr:
+                return {"qrcode": qr}
             
             return {
                 "error": True, 
-                "details": "QR Code não retornado. Instância pode já estar conectada.", 
+                "details": "QR não retornado (Instância já conectada?)", 
                 "raw": dados
             }
 
         except Exception as e:
-            logger.error(f"[UAZAPI] Erro crítico na conexão: {e}")
+            logger.error(f"[UAZAPI] Erro QR: {e}")
             return {"error": True, "details": str(e)}
 
     def verificar_status(self):
