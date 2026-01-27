@@ -3,25 +3,32 @@ import django
 from django.contrib.auth import get_user_model
 from django.conf import settings
 
-# CORREÇÃO AQUI: Mudamos de 'fubog_trigger.settings' para 'core.settings'
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+# Garanta que está apontando para o settings correto (core ou fubog_trigger)
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings') 
 django.setup()
 
 User = get_user_model()
 
 def create_superuser():
-    # ... (o resto do código continua igual)
     username = os.environ.get('DJANGO_SUPERUSER_USERNAME')
     email = os.environ.get('DJANGO_SUPERUSER_EMAIL')
     password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
 
-    if username and email and password:
-        if not User.objects.filter(username=username).exists():
-            print(f"Criando superusuário: {username}")
-            User.objects.create_superuser(username=username, email=email, password=password)
-            print("Superusuário criado com sucesso!")
+    if username and password:
+        # Tenta pegar o usuário, ou cria se não existir
+        user, created = User.objects.get_or_create(
+            username=username,
+            defaults={'email': email, 'is_staff': True, 'is_superuser': True}
+        )
+        
+        # Independente se foi criado agora ou já existia, FORÇA a nova senha
+        user.set_password(password)
+        user.save()
+        
+        if created:
+            print(f"Superusuário {username} criado com sucesso!")
         else:
-            print("Superusuário já existe. Pulando criação.")
+            print(f"Superusuário {username} já existia. Senha ATUALIZADA com sucesso!")
     else:
         print("Variáveis de ambiente não encontradas.")
 
