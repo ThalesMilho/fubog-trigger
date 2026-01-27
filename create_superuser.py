@@ -3,13 +3,14 @@ import django
 from django.contrib.auth import get_user_model
 from django.conf import settings
 
-# Configura o ambiente Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'fubog_trigger.settings') # <--- TROQUE PELO NOME DA PASTA DO SEU PROJETO
+# CORREÇÃO AQUI: Mudamos de 'fubog_trigger.settings' para 'core.settings'
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
 User = get_user_model()
 
 def create_superuser():
+    # ... (o resto do código continua igual)
     username = os.environ.get('DJANGO_SUPERUSER_USERNAME')
     email = os.environ.get('DJANGO_SUPERUSER_EMAIL')
     password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
@@ -22,7 +23,7 @@ def create_superuser():
         else:
             print("Superusuário já existe. Pulando criação.")
     else:
-        print("Variáveis de ambiente de superusuário não encontradas. Pulando.")
+        print("Variáveis de ambiente não encontradas.")
 
 if __name__ == '__main__':
     create_superuser()
