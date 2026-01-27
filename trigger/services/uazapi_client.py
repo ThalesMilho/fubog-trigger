@@ -20,8 +20,8 @@ PROD_CONFIG = {
 # ==============================================================================
 TEST_CONFIG = {
     "base_url": "https://servidoruazapidisparo.uazapi.com",
-    "instance_id": "wckRx6",
-    "token": "a2a4a60a-c343-47fc-8f09-9988106346ef",
+    "instance_id": "lnJzrs",
+    "token": "4b2344d7-f922-4d6e-be4a-cf40693b4a8e",
     "nome": "TESTE (Free)"
 }
 
