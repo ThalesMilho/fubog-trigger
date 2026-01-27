@@ -19,8 +19,8 @@ PROD_CONFIG = {
 # 2. AMBIENTE: TESTE (FREE UAZAPI) - Use este agora!
 # ==============================================================================
 TEST_CONFIG = {
-    "base_url": "https://free.uazapi.com",
-        "instance_id": "wckRx6",
+    "base_url": "https://servidoruazapidisparo.uazapi.com",
+    "instance_id": "wckRx6",
     "token": "a2a4a60a-c343-47fc-8f09-9988106346ef",
     "nome": "TESTE (Free)"
 }
