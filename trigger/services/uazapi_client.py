@@ -3,6 +3,8 @@ import logging
 import json
 from trigger.models import InstanciaZap
 from django.contrib.auth.models import User
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
 
 logger = logging.getLogger(__name__)
 
@@ -227,3 +229,40 @@ class UazApiClient:
             self._atualizar_status_db(False)
             return True
         except: return False
+
+@login_required
+def verificar_status_conexao(request):
+    try:
+        # 1. Pega a instância do usuário
+        instancia = InstanciaZap.objects.filter(usuario=request.user).first()
+        
+        if not instancia:
+            return JsonResponse({'conectado': False, 'erro': 'Nenhuma instância encontrada'})
+
+        # 2. CONSULTORIA SENIOR: Não confie no banco local. Pergunte à API agora.
+        client = UazApiClient()
+        # Supondo que você tenha um método check_instance_status no client
+        # Se não tiver, use o requests direto aqui ou implemente no service
+        status_real = client.get_instance_status(instancia.instance_id, instancia.token)
+        
+        # 3. Normaliza a resposta (UazAPI retorna 'open' ou 'connected' quando ok)
+        status_texto = status_real.get('instance_data', {}).get('status', 'unknown')
+        
+        # Lista de status que consideramos "Sucesso"
+        conectado = status_texto in ['open', 'connected', 'authenticated']
+
+        # 4. Atualiza o banco local para ficar sincronizado
+        if conectado and instancia.status != 'open':
+            instancia.status = 'open'
+            instancia.save()
+
+        return JsonResponse({
+            'conectado': conectado,
+            'status': status_texto,
+            'debug': 'Verificado na API em tempo real'
+        })
+
+    except Exception as e:
+        # Log do erro para debug no Render
+        print(f"Erro ao verificar conexão: {e}")
+        return JsonResponse({'conectado': False, 'erro': str(e)})

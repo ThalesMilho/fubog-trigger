@@ -341,5 +341,51 @@
         document.addEventListener('DOMContentLoaded', monitorarConexao);
     </script>
 
+    <script>
+        const URL_CHECK = '/api/verificar-conexao/';
+        
+        // Função de verificação
+        async function checarStatus() {
+            try {
+                console.log("🔍 Perguntando ao servidor...");
+                const res = await fetch(URL_CHECK);
+                const data = await res.json();
+                
+                console.log("📩 Resposta:", data); // Olhe o Console do Navegador (F12)
+
+                // Lógica de Redirecionamento
+                if (data.conectado === true) {
+                    console.log("✅ DEU GREEN! Redirecionando...");
+                    
+                    // Feedback visual para o usuário não fechar a tela
+                    document.body.innerHTML = `
+                        <div style="height:100vh; display:flex; justify-content:center; align-items:center; background:#0f172a; color:#22c55e; flex-direction:column;">
+                            <h1>🎉 Conectado!</h1>
+                            <p>Redirecionando para o Dashboard...</p>
+                        </div>
+                    `;
+
+                    setTimeout(() => {
+                        // Redireciona para onde você quiser (Login ou Dashboard)
+                        window.location.href = '/configurar/'; 
+                    }, 1000);
+                    
+                    return; // Encerra o loop
+                }
+
+            } catch (erro) {
+                console.error("❌ Erro no fetch:", erro);
+            }
+
+            // Tenta de novo em 3 segundos se não conectou
+            setTimeout(checarStatus, 3000);
+        }
+
+        // Inicia o loop
+        document.addEventListener("DOMContentLoaded", () => {
+            checarStatus();
+        });
+    </script>
+
 </body>
 </html>

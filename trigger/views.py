@@ -100,38 +100,29 @@ def dashboard(request):
             if form_msg.is_valid():
                 texto = form_msg.cleaned_data['mensagem']
                 contatos = Contato.objects.all().order_by('criado_em')
-                
+
                 if not contatos.exists():
                     messages.warning(request, "Lista vazia.")
                     return redirect('dashboard')
 
                 sucessos = 0
                 total = contatos.count()
-                opcoes_tempo = list(range(8, 21))
-                random.shuffle(opcoes_tempo)
 
-                for index, contato in enumerate(contatos):
+                for contato in contatos:
                     disparo = Disparo.objects.create(
                         contato=contato, mensagem=texto, status='PENDENTE'
                     )
-                    
+
                     resposta = client.enviar_texto(contato.telefone, texto)
-                    
+
                     if 'error' in resposta:
                         disparo.status = 'FALHA'
                     else:
                         disparo.status = 'ENVIADO'
                         sucessos += 1
-                    
+
                     disparo.log_api = resposta
                     disparo.save()
-
-                    # Lógica Senior: Humanização do Delay
-                    # Gera um tempo aleatório entre 1.0 e 5.0 segundos
-                    tempo_espera = random.uniform(1, 5) 
-
-                    print(f"⏳ Aguardando {tempo_espera:.2f} segundos...") # Log para debug
-                    time.sleep(tempo_espera)
 
                 messages.success(request, f"Fim! {sucessos}/{total} entregues.")
                 return redirect('dashboard')
