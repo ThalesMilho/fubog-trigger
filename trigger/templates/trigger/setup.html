@@ -36,8 +36,15 @@
 <body>
 
     <div class="login-card">
-        <img src="{% static 'img/logo-fubog.png' %}" alt="FUBOG" height="70" class="mb-4">
-        
+        <div class="d-flex align-items-center mb-4">
+            <i class="fa-brands fa-whatsapp text-success fs-2 me-2"></i>
+            <span class="fs-4 fw-bold">Disparador<span class="text-success">Pro</span></span>
+        </div>
+
+        <div class="text-center mb-4">
+            <i class="fa-solid fa-user-shield text-success" style="font-size: 4rem;"></i>
+        </div>
+
         <h5 class="mb-4 text-secondary fw-bold">Acesso ao Sistema</h5>
 
         {% if messages %}

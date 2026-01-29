@@ -45,10 +45,10 @@ class UazApiClient:
         # Limpeza de URL
         self.base_url = ACTIVE_CONFIG["base_url"].rstrip('/')
         
-        logger.info(f"╔══════════════════════════════════════════════════╗")
-        logger.info(f"║ [UAZAPI] INICIADO | MODO: {ACTIVE_CONFIG['nome']:<10}             ║")
+        logger.info("╔══════════════════════════════════════════════════╗")
+        logger.info(f"║ Iniciando Cliente WhatsApp - [SISTEMA DE DISPARO] ║")
         logger.info(f"║ ID: {self.instance_id:<36} ║")
-        logger.info(f"╚══════════════════════════════════════════════════╝")
+        logger.info("╚══════════════════════════════════════════════════╝")
 
     # =========================================================================
     # GESTÃO DE ESTADO (BANCO DE DADOS)

@@ -99,11 +99,14 @@ def dashboard(request):
             form_msg = MensagemForm(request.POST)
             if form_msg.is_valid():
                 texto = form_msg.cleaned_data['mensagem']
-                contatos = Contato.objects.all().order_by('criado_em')
+                contatos_ids = request.POST.getlist('contatos_selecionados')  # Obtém os IDs dos contatos selecionados
 
-                if not contatos.exists():
-                    messages.warning(request, "Lista vazia.")
+                # Validação: Verifica se pelo menos um contato foi selecionado
+                if not contatos_ids:
+                    messages.warning(request, "Nenhum contato selecionado.")
                     return redirect('dashboard')
+
+                contatos = Contato.objects.filter(id__in=contatos_ids).order_by('criado_em')
 
                 sucessos = 0
                 total = contatos.count()

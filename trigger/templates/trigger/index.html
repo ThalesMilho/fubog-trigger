@@ -24,7 +24,10 @@
     <nav class="navbar navbar-fubog">
         <div class="container d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center gap-3">
-                <img src="{% static 'img/logo-fubog.png' %}" alt="FUBOG" height="60">
+                <div class="d-flex align-items-center">
+                    <i class="fa-brands fa-whatsapp text-success fs-2 me-2"></i>
+                    <span class="fs-4 fw-bold">Disparador<span class="text-success">Pro</span></span>
+                </div>
             </div>
             
             <div class="d-flex align-items-center gap-3">
@@ -50,73 +53,61 @@
             {% endfor %}
         {% endif %}
 
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card card-custom h-100">
-                    <div class="card-header-custom bg-secondary d-flex justify-content-between align-items-center">
-                        <span>Adicionar Número</span>
-                        <span class="badge bg-white text-dark">{{ lista_contatos.count }}</span>
-                    </div>
-                    <div class="card-body">
-                        <form method="post" class="mb-3">
-                            {% csrf_token %}
-                            <div class="input-group">
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card card-custom h-100">
+                        <div class="card-header-custom">
+                            <span>Adicionar Número</span>
+                            <span class="badge bg-white text-dark">{{ lista_contatos.count }}</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="input-group mb-3">
                                 {{ form_contato.telefone }}
                                 <button type="submit" name="btn_salvar" class="btn btn-secondary">
                                     <i class="fa-solid fa-plus"></i>
                                 </button>
                             </div>
-                        </form>
 
-                        <div style="max-height: 350px; overflow-y: auto;" class="mb-3">
-                            {% if lista_contatos %}
-                                <div class="d-flex flex-column gap-2">
-                                    {% for c in lista_contatos %}
-                                        <span class="number-badge">
-                                            <i class="fa-brands fa-whatsapp me-2"></i> {{ c.telefone }}
-                                        </span>
-                                    {% endfor %}
-                                </div>
-                            {% else %}
-                                <div class="text-center text-muted py-4">
-                                    <i class="fa-solid fa-inbox fs-1 mb-2 opacity-25"></i><br>
-                                    Lista vazia
-                                </div>
-                            {% endif %}
-                        </div>
-
-                        {% if lista_contatos %}
-                            {% if request.user|has_group:"Time de TI" or request.user.is_superuser %}
-                                <form method="post" onsubmit="return confirm('ATENÇÃO TI: Isso apagará toda a lista do banco de dados. Confirmar?');">
-                                    {% csrf_token %}
-                                    <button type="submit" name="btn_limpar" class="btn btn-outline-danger w-100 btn-sm">
-                                        <i class="fa-solid fa-trash me-2"></i> LIMPAR TUDO (Restrito TI)
-                                    </button>
-                                </form>
-                            {% endif %}
-                        {% endif %}
-                        </div>
-                </div>
-            </div>
-
-            <div class="col-md-8">
-                <div class="card card-custom h-100">
-                    <div class="card-header-custom">
-                        <i class="fa-regular fa-paper-plane me-2"></i> Enviar Mensagem
-                    </div>
-                    <div class="card-body p-4">
-                        
-                        <div class="alert alert-warning border-0 d-flex align-items-center mb-4">
-                            <i class="fa-solid fa-stopwatch fs-3 me-3"></i>
-                            <div>
-                                <strong>Aguarde o envio!</strong><br>
-                                O sistema pausa entre <strong>10s e 30s</strong> a cada mensagem.
+                            <div style="max-height: 350px; overflow-y: auto;" class="mb-3">
+                                {% if lista_contatos %}
+                                    <ul class="list-group">
+                                        {% for c in lista_contatos %}
+                                            <li class="list-group-item d-flex align-items-center">
+                                                <input class="form-check-input me-3" type="checkbox" name="selecionados" value="{{ c.id }}" checked>
+                                                <div>
+                                                    <strong>{{ c.telefone }}</strong>
+                                                </div>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fa-solid fa-inbox fs-1 mb-2 opacity-25"></i><br>
+                                        Lista vazia
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
+                    </div>
+                </div>
 
-                        <form method="post">
-                            {% csrf_token %}
-                            
+                <div class="col-md-8">
+                    <div class="card card-custom h-100">
+                        <div class="card-header-custom">
+                            <i class="fa-regular fa-paper-plane me-2"></i> Enviar Mensagem
+                        </div>
+                        <div class="card-body p-4">
+                            <div class="alert alert-warning border-0 d-flex align-items-center mb-4">
+                                <i class="fa-solid fa-stopwatch fs-3 me-3"></i>
+                                <div>
+                                    <strong>Aguarde o envio!</strong><br>
+                                    O sistema pausa entre <strong>10s e 30s</strong> a cada mensagem.
+                                </div>
+                            </div>
+
                             <div class="mb-4">
                                 <label class="fw-bold mb-2 text-secondary">Texto da Mensagem</label>
                                 {{ form_msg.mensagem }}
@@ -132,11 +123,11 @@
                             <button type="submit" name="btn_enviar" class="btn btn-green w-100 py-3 fs-4 shadow-sm" {% if not lista_contatos %}disabled{% endif %}>
                                 <i class="fa-solid fa-paper-plane me-2"></i> DISPARAR
                             </button>
-                        </form>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </form>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
