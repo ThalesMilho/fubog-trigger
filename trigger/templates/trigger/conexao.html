@@ -307,5 +307,51 @@
         {% endif %}
     </script>
 
+    <script>
+        // Configuração
+        const ENDPOINT_VERIFICACAO = '/api/verificar-conexao/';
+        const URL_DESTINO = '/admin/login/'; // ou '/accounts/login/' dependendo da sua rota
+        const INTERVALO_CHECK = 3000; // 3 segundos
+
+        async function monitorarConexao() {
+            try {
+                console.log("📡 Verificando status da conexão...");
+                
+                const response = await fetch(ENDPOINT_VERIFICACAO);
+                
+                if (response.status === 200) {
+                    const data = await response.json();
+                    
+                    // UazAPI geralmente retorna status: 'open' ou 'connected' quando sucesso
+                    // Ajuste 'data.conectado' conforme o retorno exato da sua View Django
+                    if (data.conectado === true || data.status === 'open') {
+                        
+                        // UX: Feedback visual antes de redirecionar
+                        document.body.innerHTML = `
+                            <div style="display:flex; justify-content:center; align-items:center; height:100vh; background:#111827; color:#10b981; flex-direction:column; font-family:sans-serif;">
+                                <h1>✅ Conectado com Sucesso!</h1>
+                                <p>Redirecionando para o login...</p>
+                            </div>
+                        `;
+                        
+                        // O Redirecionamento solicitado
+                        setTimeout(() => {
+                            window.location.href = URL_DESTINO;
+                        }, 1500);
+                        return; // Para o loop
+                    }
+                }
+            } catch (error) {
+                console.error("Erro silencioso ao verificar:", error);
+            }
+
+            // Loop recursivo (continua tentando se não conectou)
+            setTimeout(monitorarConexao, INTERVALO_CHECK);
+        }
+
+        // Inicia o monitoramento assim que a página carrega
+        document.addEventListener('DOMContentLoaded', monitorarConexao);
+    </script>
+
 </body>
 </html>

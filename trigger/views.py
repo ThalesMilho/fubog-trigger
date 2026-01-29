@@ -221,3 +221,24 @@ def verificar_conexao_api(request):
         'conectado': conectado,
         'instancia_id': client.instance_id
     })
+
+def verificar_status_conexao(request):
+    """
+    View para verificar o status da conexão com a UazAPI.
+    Retorna um JSON com o status da conexão.
+    """
+    try:
+        # Simulação de chamada à UazAPI
+        client = UazApiClient()
+        status_uazapi = client.verificar_status()  # Exemplo: retorna 'open' ou 'closed'
+
+        # Traduz o status da API para um booleano
+        esta_conectado = status_uazapi == 'open'
+
+        return JsonResponse({
+            'conectado': esta_conectado,
+            'status': status_uazapi
+        })
+    except Exception as e:
+        logger.error(f"Erro ao verificar status da conexão: {e}")
+        return JsonResponse({'conectado': False, 'error': str(e)}, status=500)
