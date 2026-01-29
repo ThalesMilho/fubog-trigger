@@ -277,29 +277,17 @@
                 }
             })
             .catch(err => {
-                console.error('❌ Erro ao verificar:', err);
-                
-                tentativas++;
-                const statusEl = document.getElementById("api-status");
-                
-                if (statusEl) {
-                    statusEl.textContent = "Erro";
-                    statusEl.className = "badge bg-danger";
-                }
-                
-                if (tentativas >= maxTentativas) {
-                    clearInterval(intervaloId);
-                }
+                console.error('Erro ao verificar conexão:', err);
             });
         }
 
         // 🚀 Inicia o polling apenas se há QR Code e não há erro
         {% if qr_code and not erro_qr %}
             console.log('▶️ Iniciando polling de verificação (a cada 3 segundos)');
-            
+
             // Primeira verificação imediata
             setTimeout(verificarConexao, 1000);
-            
+
             // Verificações subsequentes a cada 3 segundos
             intervaloId = setInterval(verificarConexao, 3000);
         {% else %}
