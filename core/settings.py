@@ -58,9 +58,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
+# DATABASE CONFIGURATION
+# ------------------------------------------------------------------------------
+# Se existir a variável DATABASE_URL (na nuvem), usa ela. 
+# Se não, usa o banco local (sqlite ou postgres local) para desenvolvimento.
+
 DATABASES = {
     'default': dj_database_url.config(
-        default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
+        default='postgres://postgres:lya100104@localhost:5432/sistemabicho',
         conn_max_age=600
     )
 }
@@ -78,9 +83,12 @@ TIME_ZONE = 'America/Sao_Paulo'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / 'core' / 'static']
-STATIC_ROOT = BASE_DIR / 'staticfiles' # Necessário para produção
+# STATIC FILES CONFIGURATION
+# ------------------------------------------------------------------------------
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Onde o Render vai juntar os arquivos
+
+# Ativa a compressão e cache eficiente de estáticos (Whitenoise)
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

@@ -1,0 +1,28 @@
+[33m03ef846[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Forcar atualizacao de senha admin
+[33m48c42da[m Corrigindo script de superuser e build
+[33m3171605[m novj
+[33mfcd055b[m nov
+[33m3e2d109[m novo
+[33mc458b0c[m novo superuser
+[33m7245245[m teste por favor
+[33m1c4e990[m teste por favor funciona
+[33medd1f05[m Configura deploy Render (Tentativa 2)
+[33m838ae8f[m Configura deploy Render (Tentativa 2)
+[33m40f0b87[m Fix:)
+[33mff5dba0[m Fix: Cliente UazApi Hibrido)
+[33m546adda[m Fix: Cliente UazApi Hibrido e Robusto (Com e Sem ID)
+[33mdd4071d[m Fix: Client tenta POST e GET
+[33m1da8d0e[m Fix: Client tenta POST e GET para QR Code
+[33m35d4c4f[m Fix: Ajuste cirurgico na URL do QR Code
+[33m08b6094[m Fix: Cliente Completo
+[33m4e327fd[m Fix: Cliente Completo (Hibrido + Legado + Dedicado)
+[33mf57e1c7[m Fix: Credenciais Hibridas - Hardcode com override via Admin
+[33mf3a4f2a[m Fix: Client uazapi completo com servidor dedicado
+[33me131c49[m Fix: Client agora lê ID e Token do Banco de Dados
+[33mad9dc2b[m Feat: Automacao de credenciais Uazapi
+[33m1b57fd0[m Fix: Criar usuario automaticamente sem Shell
+[33m3d7b4a0[m Fix Final: Dependencias e Settings corrigidos
+[33m9294ec9[m Fix: Adiciona dependencias de produção (gunicorn, whitenoise)
+[33meb66363[m Adiciona script de build com permissão de execução
+[33mea1f608[m feat: Sistema completo de QR Code para múltiplas instâncias WhatsApp
+[33m060b2a7[m Primeira versão - MVP FUBOG Trigger
