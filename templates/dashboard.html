@@ -1,0 +1,131 @@
+<style>
+    :root {
+        --primary-color: #10b981; /* Verde Sucesso */
+        --bg-color: #111827;      /* Fundo Escuro */
+        --card-bg: #1f2937;       /* Cinza Card */
+        --text-color: #f3f4f6;    /* Texto Claro */
+    }
+
+    body {
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+    }
+
+    .dashboard-card {
+        background-color: var(--card-bg);
+        padding: 2rem;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        width: 400px;
+        text-align: center;
+        border: 1px solid #374151;
+    }
+
+    .status-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        animation: pulse 2s infinite;
+    }
+
+    .progress-container {
+        background-color: #374151;
+        border-radius: 9999px;
+        height: 12px;
+        width: 100%;
+        margin: 1.5rem 0;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        background-color: var(--primary-color);
+        height: 100%;
+        width: 0%; /* Será controlado pelo JS */
+        transition: width 0.5s ease;
+        border-radius: 9999px;
+        box-shadow: 0 0 10px var(--primary-color);
+    }
+
+    .timer-display {
+        font-size: 2.5rem;
+        font-weight: bold;
+        font-variant-numeric: tabular-nums;
+        color: var(--primary-color);
+    }
+
+    .log-text {
+        color: #9ca3af;
+        font-size: 0.9rem;
+        margin-top: 1rem;
+        font-family: 'Courier New', monospace;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+</style>
+
+<div class="dashboard-card">
+    <div class="status-icon">🚀</div>
+    <h2>Disparador Ativo</h2>
+    
+    <div class="timer-display" id="contador">00:00</div>
+    
+    <div class="progress-container">
+        <div class="progress-bar" id="barraProgresso"></div>
+    </div>
+
+    <p class="log-text" id="logStatus">Iniciando motor de disparo...</p>
+</div>
+
+<script>
+    // Configuração
+    const tempoMinimo = 1000; // 1 segundo
+    const tempoMaximo = 5000; // 5 segundos
+
+    function atualizarStatus() {
+        // Gera tempo aleatório para exibição visual
+        const proximoDisparo = Math.floor(Math.random() * (tempoMaximo - tempoMinimo + 1) + tempoMinimo);
+        let tempoRestante = proximoDisparo;
+        
+        const logElement = document.getElementById('logStatus');
+        const barraElement = document.getElementById('barraProgresso');
+        const contadorElement = document.getElementById('contador');
+
+        logElement.innerText = `Próximo envio em ${(proximoDisparo/1000).toFixed(1)}s`;
+        barraElement.style.width = '0%';
+        barraElement.style.transition = 'none'; // Reseta animação
+
+        // Pequeno delay para reiniciar animação da barra
+        setTimeout(() => {
+            barraElement.style.transition = `width ${proximoDisparo}ms linear`;
+            barraElement.style.width = '100%';
+        }, 50);
+
+        // Countdown visual
+        let intervalo = setInterval(() => {
+            tempoRestante -= 100;
+            let segundos = Math.ceil(tempoRestante / 1000);
+            contadorElement.innerText = `00:0${segundos}`;
+
+            if (tempoRestante <= 0) {
+                clearInterval(intervalo);
+                logElement.innerText = "Enviando mensagem...";
+                logElement.style.color = "#fff";
+                
+                // Simula o loop recomeçando (Remova isso e integre com seu backend real)
+                setTimeout(atualizarStatus, 1000); 
+            }
+        }, 100);
+    }
+
+    // Inicia
+    window.onload = atualizarStatus;
+</script>

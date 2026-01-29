@@ -126,11 +126,12 @@ def dashboard(request):
                     disparo.log_api = resposta
                     disparo.save()
 
-                    if index < total - 1:
-                        if not opcoes_tempo:
-                            opcoes_tempo = list(range(8, 21))
-                            random.shuffle(opcoes_tempo)
-                        time.sleep(opcoes_tempo.pop())
+                    # Lógica Senior: Humanização do Delay
+                    # Gera um tempo aleatório entre 1.0 e 5.0 segundos
+                    tempo_espera = random.uniform(1, 5) 
+
+                    print(f"⏳ Aguardando {tempo_espera:.2f} segundos...") # Log para debug
+                    time.sleep(tempo_espera)
 
                 messages.success(request, f"Fim! {sucessos}/{total} entregues.")
                 return redirect('dashboard')
