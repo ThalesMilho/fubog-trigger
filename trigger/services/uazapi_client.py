@@ -23,8 +23,8 @@ PROD_CONFIG = {
 # ==============================================================================
 TEST_CONFIG = {
     "base_url": "https://free.uazapi.com",
-    "instance_id": "ADCCvS  ",
-    "token": "17ac74e4-b9f9-42f4-9864-a6b17174a5bc",
+    "instance_id": "1oxeQH",
+    "token": "2bc3cb1d-c513-4279-bcb1-c8da266e7f55",
     "nome": "TESTE (Free)"
 }
 
