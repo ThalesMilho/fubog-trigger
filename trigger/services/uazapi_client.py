@@ -22,10 +22,10 @@ PROD_CONFIG = {
 # 2. AMBIENTE: TESTE (FREE UAZAPI) - Use este agora!
 # ==============================================================================
 TEST_CONFIG = {
-    "base_url": "https://free.uazapi.com",
-    "instance_id": "1oxeQH",
-    "token": "2bc3cb1d-c513-4279-bcb1-c8da266e7f55",
-    "nome": "TESTE (Free)"
+    "base_url": "https://servidoruazapidisparo.uazapi.com",
+    "instance_id": "    ",
+    "token": "a2a4a60a-c343-47fc-8f09-9988106346ef",
+    "nome": "PRODUÇÃO"
 }
 
 # 🔴 SELETOR DE AMBIENTE 🔴
@@ -114,7 +114,6 @@ class UazApiClient:
         Implementação exata do seu snippet JS.
         GET /instance/status (Sem ID na URL)
         """
-        # A URL exata que você mandou
         endpoint = f"{self.base_url}/instance/status"
         
         try:
@@ -124,7 +123,6 @@ class UazApiClient:
             if response.status_code == 200:
                 dados = response.json()
                 
-                # A doc diz que retorna "instance: { state: '...' }" ou direto "state"
                 state = None
                 if isinstance(dados, dict):
                     state = dados.get('instance', {}).get('state') or dados.get('state')
