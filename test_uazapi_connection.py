@@ -47,7 +47,7 @@ def print_info(text):
 
 # Peguei do seu print:
 INSTANCE_ID = "FubogSystem"
-BASE_URL = "https://free.uazapi.com"
+BASE_URL = "https://servidoruazapidisparo.uazapi.com"
 INSTANCE_TOKEN = "a754f425-5c89-4964-b59e-a56ea087dfa6" # TOKEN DA INSTÂNCIA
 
 # ============================================================================

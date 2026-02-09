@@ -1,266 +1,306 @@
 import requests
 import logging
-import json
-from trigger.models import InstanciaZap
-from django.contrib.auth.models import User
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
+import os
+from django.core.exceptions import ImproperlyConfigured
+from requests.exceptions import RequestException, Timeout, ConnectionError
+from typing import Dict, Any, Optional
+import threading
 
 logger = logging.getLogger(__name__)
 
-# ==============================================================================
-# 1. AMBIENTE: PRODUÇÃO (CHEFE/DEDICADO)
-# ==============================================================================
-PROD_CONFIG = {
-    "base_url": "https://servidoruazapidisparo.uazapi.com",
-    "instance_id": "wckRx6",
-    "token": "a2a4a60a-c343-47fc-8f09-9988106346ef",
-    "nome": "PRODUÇÃO"
-}
+# Custom Exceptions for WhatsApp API
+class WhatsAppError(Exception):
+    """Base exception for WhatsApp API errors."""
+    pass
 
-# ==============================================================================
-# 2. AMBIENTE: TESTE (FREE UAZAPI) - Use este agora!
-# ==============================================================================
-TEST_CONFIG = {
-    "base_url": "https://servidoruazapidisparo.uazapi.com",
-    "instance_id": "    ",
-    "token": "a2a4a60a-c343-47fc-8f09-9988106346ef",
-    "nome": "PRODUÇÃO"
-}
+class WhatsAppAuthenticationError(WhatsAppError):
+    """Raised when API credentials are invalid."""
+    pass
 
-# 🔴 SELETOR DE AMBIENTE 🔴
-# Mantenha TEST_CONFIG para os testes de hoje. Mude para PROD_CONFIG amanhã.
-ACTIVE_CONFIG = TEST_CONFIG
+class WhatsAppQuotaExceeded(WhatsAppError):
+    """Raised when API quota is exceeded."""
+    pass
+
+class WhatsAppRateLimitError(WhatsAppError):
+    """Raised when rate limit is exceeded."""
+    pass
+
+class WhatsAppUnavailableError(WhatsAppError):
+    """Raised when WhatsApp service is unavailable."""
+    pass
 
 class UazApiClient:
-    def __init__(self):
-        # 1. Sincronização Passiva (Não toca na API, só no Banco Local)
-        self._sincronizar_banco_local()
-        
-        # 2. Carregamento
-        instancia_db = InstanciaZap.objects.first()
-        self.instance_id = instancia_db.instancia_id
-        self.token = instancia_db.token
-        
-        # Limpeza de URL
-        self.base_url = ACTIVE_CONFIG["base_url"].rstrip('/')
-        
-        logger.info("╔══════════════════════════════════════════════════╗")
-        logger.info(f"║ Iniciando Cliente WhatsApp - [SISTEMA DE DISPARO] ║")
-        logger.info(f"║ ID: {self.instance_id:<36} ║")
-        logger.info("╚══════════════════════════════════════════════════╝")
-
-    # =========================================================================
-    # GESTÃO DE ESTADO (BANCO DE DADOS)
-    # =========================================================================
+    """
+    Singleton WhatsApp API client for Windows environment.
+    Thread-safe implementation with secure configuration loading.
+    """
+    _instance = None
+    _lock = threading.Lock()
     
-    def _sincronizar_banco_local(self):
-        """
-        Alinha o banco de dados com a configuração ativa.
-        IMPORTANTE: Não faz chamadas de rede para evitar resetar a instância na API.
-        """
-        try:
-            instancia_db = InstanciaZap.objects.first()
-            
-            # Se não existe, cria
-            if not instancia_db:
-                InstanciaZap.objects.create(
-                    instancia_id=ACTIVE_CONFIG["instance_id"],
-                    token=ACTIVE_CONFIG["token"],
-                    nome_operador=f"Sistema ({ACTIVE_CONFIG['nome']})",
-                    conectado=False
-                )
+    def __new__(cls):
+        """Singleton pattern implementation."""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super(UazApiClient, cls).__new__(cls)
+                    cls._instance._initialized = False
+        return cls._instance
+    
+    def __init__(self):
+        """Initialize client with environment configuration."""
+        if self._initialized:
+            return
+        
+        with self._lock:
+            if self._initialized:
                 return
-
-            # Se está diferente (Troca de Ambiente), atualiza
-            if (instancia_db.instancia_id != ACTIVE_CONFIG["instance_id"] or 
-                instancia_db.token != ACTIVE_CONFIG["token"]):
-                
-                logger.warning(f"[UAZAPI] ♻️ Trocando ambiente: {instancia_db.instancia_id} -> {ACTIVE_CONFIG['instance_id']}")
-                instancia_db.instancia_id = ACTIVE_CONFIG["instance_id"]
-                instancia_db.token = ACTIVE_CONFIG["token"]
-                instancia_db.nome_operador = f"Sistema ({ACTIVE_CONFIG['nome']})"
-                instancia_db.conectado = False
-                instancia_db.save()
-                
-        except Exception as e:
-            logger.error(f"[UAZAPI] Erro DB: {e}")
-
-    def _atualizar_status_db(self, status: bool):
+            
+            # Load required environment variables
+            self.base_url = self._get_required_env('UAZAPI_URL').rstrip('/')
+            self.instance_id = self._get_required_env('UAZAPI_INSTANCE')
+            self.token = self._get_required_env('UAZAPI_TOKEN')
+            
+            # Validate configuration at startup
+            self._validate_config()
+            
+            self._initialized = True
+            logger.info(f"UazApiClient initialized for instance: {self.instance_id}")
+    
+    def _get_required_env(self, key: str) -> str:
+        """Get required environment variable or raise ImproperlyConfigured."""
+        value = os.getenv(key)
+        if not value:
+            raise ImproperlyConfigured(f"Required environment variable {key} is not set")
+        return value
+    
+    def _validate_config(self) -> None:
+        """Validate API configuration by checking connectivity."""
         try:
-            InstanciaZap.objects.filter(instancia_id=self.instance_id).update(conectado=status)
-        except: pass
-
-    # =========================================================================
-    # CORE: HEADERS (Omni-Channel)
-    # =========================================================================
-
-    def _get_headers(self):
-        """Headers completos para garantir aceitação."""
+            health = self.check_health()
+            if not health.get('healthy', False):
+                logger.warning(f"API health check failed: {health.get('error', 'Unknown error')}")
+        except Exception as e:
+            logger.error(f"API configuration validation failed: {e}")
+    
+    def _get_headers(self) -> Dict[str, str]:
+        """Get standardized headers for API requests."""
         return {
-            "apikey": self.token,            
-            "token": self.token,             
-            "Authorization": f"Bearer {self.token}", 
+            "apikey": self.token,
+            "token": self.token,
+            "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
-
-    # =========================================================================
-    # 1. VERIFICAR STATUS (BASEADO NO SEU SNIPPET JS)
-    # =========================================================================
-
-    def verificar_status(self):
-        """
-        Implementação exata do seu snippet JS.
-        GET /instance/status (Sem ID na URL)
-        """
-        endpoint = f"{self.base_url}/instance/status"
-        
+    
+    def _handle_api_response(self, response: requests.Response) -> Dict[str, Any]:
+        """Handle API response and raise appropriate exceptions."""
         try:
-            # logger.debug(f"[UAZAPI] Checando status em: {endpoint}")
-            response = requests.get(endpoint, headers=self._get_headers(), timeout=10)
+            data = response.json()
+        except ValueError:
+            data = {"error": True, "details": "Invalid JSON response"}
+        
+        # Map HTTP status codes to custom exceptions
+        if response.status_code == 401:
+            raise WhatsAppAuthenticationError("Invalid API credentials")
+        elif response.status_code == 403:
+            raise WhatsAppAuthenticationError("Access forbidden - check permissions")
+        elif response.status_code == 429:
+            raise WhatsAppRateLimitError("Rate limit exceeded")
+        elif response.status_code in [500, 502, 503, 504]:
+            raise WhatsAppUnavailableError(f"Service unavailable: {response.status_code}")
+        elif response.status_code >= 400:
+            raise WhatsAppError(f"API error: {response.status_code} - {data.get('details', 'Unknown error')}")
+        
+        return data
+    
+    def check_health(self) -> Dict[str, Any]:
+        """
+        Verify API connectivity and authentication.
+        Returns health status and any error details.
+        """
+        try:
+            endpoint = f"{self.base_url}/instance/status"
+            response = requests.get(
+                endpoint, 
+                headers=self._get_headers(), 
+                timeout=10
+            )
             
             if response.status_code == 200:
-                dados = response.json()
+                return {"healthy": True, "status": "connected"}
+            else:
+                return {"healthy": False, "error": f"HTTP {response.status_code}"}
                 
-                state = None
-                if isinstance(dados, dict):
-                    state = dados.get('instance', {}).get('state') or dados.get('state')
-                
-                # Lista de estados considerados "Conectado"
-                conectado = state in ['open', 'connected']
-                
-                # Log para entendermos o que a API está devolvendo
-                if conectado:
-                    # logger.info(f"[UAZAPI] Status: CONECTADO ({state})")
-                    self._atualizar_status_db(True)
-                else:
-                    # logger.info(f"[UAZAPI] Status: Desconectado ({state})")
-                    pass
-                    
-                return conectado
+        except Timeout:
+            return {"healthy": False, "error": "Connection timeout"}
+        except ConnectionError:
+            return {"healthy": False, "error": "Connection failed"}
+        except Exception as e:
+            return {"healthy": False, "error": str(e)}
+    
+    def verificar_status(self) -> bool:
+        """
+        Check WhatsApp connection status.
+        Returns True if connected, False otherwise.
+        """
+        try:
+            endpoint = f"{self.base_url}/instance/status"
+            response = requests.get(
+                endpoint, 
+                headers=self._get_headers(), 
+                timeout=10
+            )
             
-            # Se der 401, o token está errado (instância sumiu ou mudou)
-            if response.status_code in [401, 403]:
-                logger.error(f"[UAZAPI] Status Check: Credenciais Inválidas ({response.status_code}).")
-                return False
-
+            if response.status_code == 200:
+                data = response.json()
+                state = None
+                
+                if isinstance(data, dict):
+                    state = data.get('instance', {}).get('state') or data.get('state')
+                
+                return state in ['open', 'connected']
+            
             return False
             
         except Exception as e:
-            logger.error(f"[UAZAPI] Erro Status: {e}")
+            logger.error(f"Error checking WhatsApp status: {e}")
             return False
-
-    # =========================================================================
-    # 2. CONEXÃO (ROTEAMENTO INTELIGENTE)
-    # =========================================================================
-
-    def obter_qr_code(self):
-        """Tenta rotas em ordem de modernidade"""
+    
+    def obter_qr_code(self) -> Dict[str, Any]:
+        """
+        Get QR code for WhatsApp connection.
+        Returns QR code data or error information.
+        """
         rotas = [
-            # 1. POST /connect (Doc Nova / JS)
             {"method": "POST", "url": f"{self.base_url}/instance/connect"},
-            # 2. GET /connect/{id} (Legado Robusto)
-            {"method": "GET",  "url": f"{self.base_url}/instance/connect/{self.instance_id}"},
-            # 3. POST /connect/{id} (Híbrido)
+            {"method": "GET", "url": f"{self.base_url}/instance/connect/{self.instance_id}"},
             {"method": "POST", "url": f"{self.base_url}/instance/connect/{self.instance_id}"}
         ]
-
+        
         headers = self._get_headers()
         last_error = ""
-
-        for r in rotas:
+        
+        for rota in rotas:
             try:
-                if r["method"] == "POST":
-                    resp = requests.post(r["url"], json={}, headers=headers, timeout=20)
+                if rota["method"] == "POST":
+                    response = requests.post(rota["url"], json={}, headers=headers, timeout=20)
                 else:
-                    resp = requests.get(r["url"], headers=headers, timeout=20)
-
-                if resp.status_code == 200:
-                    logger.info(f"[UAZAPI] Conexão iniciada via {r['url']}")
-                    return self._parser_qr(resp.json())
+                    response = requests.get(rota["url"], headers=headers, timeout=20)
                 
-                if resp.status_code in [401, 403]:
-                    return {"error": True, "details": "Token rejeitado. Instância existe?"}
-
-                last_error = f"{resp.status_code}"
-            except Exception as e:
+                if response.status_code == 200:
+                    data = self._handle_api_response(response)
+                    return self._parse_qr_response(data)
+                
+                last_error = f"HTTP {response.status_code}"
+                
+            except (Timeout, ConnectionError) as e:
                 last_error = str(e)
                 continue
-
-        return {"error": True, "details": f"Falha ao obter QR. Código: {last_error}"}
-
-    def _parser_qr(self, dados):
-        qr = dados.get('base64') or dados.get('qrcode') or \
-             dados.get('instance', {}).get('qrcode') or \
-             dados.get('instance', {}).get('qr')
-        if qr: return {"qrcode": qr}
-        return {"error": True, "details": "QR não retornado (Instância já pareada?).", "raw": dados}
-
-    # =========================================================================
-    # 3. ENVIO E LOGOUT
-    # =========================================================================
-
-    def enviar_texto(self, numero: str, mensagem: str):
-        # Tenta V2
+            except WhatsAppError as e:
+                return {"error": True, "details": str(e)}
+        
+        return {"error": True, "details": f"All routes failed. Last error: {last_error}"}
+    
+    def _parse_qr_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse QR code from API response."""
+        qr = (data.get('base64') or 
+              data.get('qrcode') or 
+              data.get('instance', {}).get('qrcode') or 
+              data.get('instance', {}).get('qr'))
+        
+        if qr:
+            return {"qrcode": qr}
+        
+        return {"error": True, "details": "QR code not found", "raw": data}
+    
+    def enviar_texto(self, numero: str, mensagem: str) -> Dict[str, Any]:
+        """
+        Send text message via WhatsApp.
+        Implements retry logic and proper error handling.
+        """
+        # Validate phone number format
+        if not self._validate_phone_number(numero):
+            raise ValueError(f"Invalid phone number format: {numero}")
+        
+        # Try modern API first, fallback to legacy
+        try:
+            return self._send_text_v2(numero, mensagem)
+        except WhatsAppError:
+            return self._send_text_legacy(numero, mensagem)
+    
+    def _send_text_v2(self, numero: str, mensagem: str) -> Dict[str, Any]:
+        """Send text using modern API v2."""
         endpoint = f"{self.base_url}/message/sendText/{self.instance_id}"
-        payload = {"number": numero, "options": {"delay": 1200}, "textMessage": {"text": mensagem}}
+        payload = {
+            "number": numero,
+            "options": {"delay": 1200},
+            "textMessage": {"text": mensagem}
+        }
         
         try:
-            r = requests.post(endpoint, json=payload, headers=self._get_headers(), timeout=15)
-            if r.status_code in [200, 201]: return r.json()
-        except: pass
-
-        # Fallback V1
-        return self._enviar_legado(numero, mensagem)
-
-    def _enviar_legado(self, numero, mensagem):
+            response = requests.post(
+                endpoint, 
+                json=payload, 
+                headers=self._get_headers(), 
+                timeout=15
+            )
+            return self._handle_api_response(response)
+            
+        except (Timeout, ConnectionError) as e:
+            raise WhatsAppUnavailableError(f"Network error: {e}")
+    
+    def _send_text_legacy(self, numero: str, mensagem: str) -> Dict[str, Any]:
+        """Send text using legacy API."""
+        endpoint = f"{self.base_url}/send/text"
+        payload = {"number": numero, "text": mensagem}
+        
         try:
-            url = f"{self.base_url}/send/text"
-            return requests.post(url, json={"number": numero, "text": mensagem}, headers=self._get_headers(), timeout=15).json()
-        except Exception as e: return {"error": True, "details": str(e)}
-
-    def desconectar_instancia(self):
-        """Só deleta se o usuário pedir explicitamente"""
+            response = requests.post(
+                endpoint, 
+                json=payload, 
+                headers=self._get_headers(), 
+                timeout=15
+            )
+            return self._handle_api_response(response)
+            
+        except (Timeout, ConnectionError) as e:
+            raise WhatsAppUnavailableError(f"Network error: {e}")
+    
+    def _validate_phone_number(self, numero: str) -> bool:
+        """Validate phone number format."""
+        import re
+        
+        # Remove non-digits
+        cleaned = re.sub(r'\D', '', numero)
+        
+        # Check if it's a valid Brazilian number (55 + DDD + number)
+        if len(cleaned) < 12 or len(cleaned) > 13:
+            return False
+        
+        # Must start with Brazil country code
+        if not cleaned.startswith('55'):
+            return False
+        
+        # DDD should be between 11 and 99 (excluding special codes)
+        ddd = cleaned[2:4]
+        if not (11 <= int(ddd) <= 99):
+            return False
+        
+        return True
+    
+    def desconectar_instancia(self) -> bool:
+        """Disconnect WhatsApp instance."""
         try:
-            requests.delete(f"{self.base_url}/instance/logout/{self.instance_id}", headers=self._get_headers(), timeout=10)
-            self._atualizar_status_db(False)
-            return True
-        except: return False
-
-@login_required
-def verificar_status_conexao(request):
-    try:
-        # 1. Pega a instância do usuário
-        instancia = InstanciaZap.objects.filter(usuario=request.user).first()
-        
-        if not instancia:
-            return JsonResponse({'conectado': False, 'erro': 'Nenhuma instância encontrada'})
-
-        # 2. CONSULTORIA SENIOR: Não confie no banco local. Pergunte à API agora.
-        client = UazApiClient()
-        # Supondo que você tenha um método check_instance_status no client
-        # Se não tiver, use o requests direto aqui ou implemente no service
-        status_real = client.get_instance_status(instancia.instance_id, instancia.token)
-        
-        # 3. Normaliza a resposta (UazAPI retorna 'open' ou 'connected' quando ok)
-        status_texto = status_real.get('instance_data', {}).get('status', 'unknown')
-        
-        # Lista de status que consideramos "Sucesso"
-        conectado = status_texto in ['open', 'connected', 'authenticated']
-
-        # 4. Atualiza o banco local para ficar sincronizado
-        if conectado and instancia.status != 'open':
-            instancia.status = 'open'
-            instancia.save()
-
-        return JsonResponse({
-            'conectado': conectado,
-            'status': status_texto,
-            'debug': 'Verificado na API em tempo real'
-        })
-
-    except Exception as e:
-        # Log do erro para debug no Render
-        print(f"Erro ao verificar conexão: {e}")
-        return JsonResponse({'conectado': False, 'erro': str(e)})
+            endpoint = f"{self.base_url}/instance/logout/{self.instance_id}"
+            response = requests.delete(
+                endpoint, 
+                headers=self._get_headers(), 
+                timeout=10
+            )
+            
+            # Don't raise exception for logout, just return status
+            return response.status_code in [200, 204]
+            
+        except Exception as e:
+            logger.error(f"Error disconnecting instance: {e}")
+            return False

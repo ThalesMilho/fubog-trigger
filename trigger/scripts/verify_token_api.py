@@ -15,7 +15,7 @@ if not inst:
 
 token = inst.token
 instance_name = inst.instancia_id
-base_url = 'https://free.uazapi.com'
+base_url = 'https://servidoruazapidisparo.uazapi.com'
 url = f"{base_url.rstrip('/')}/instance/connect"
 
 print('Using instance (db):', instance_name)

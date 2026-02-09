@@ -1,254 +1,289 @@
-# 📚 Índice de Documentação - Sistema de QR Code WhatsApp
+# Fubog Trigger - WhatsApp Message Broadcasting System
 
-Bem-vindo! Seu sistema foi corrigido e documentado completamente. Leia na ordem abaixo:
+Asynchronous Django application for bulk WhatsApp messaging using UazAPI integration.
 
----
+## Features
 
-## 🚀 COMECE AQUI (Leitura Obrigatória)
+- **Asynchronous Processing**: Non-blocking message sending via Celery
+- **Windows Compatible**: Uses SQL database as message broker (no Redis required)
+- **Rate Limiting**: Built-in protection against WhatsApp API bans
+- **Error Handling**: Comprehensive retry logic and error recovery
+- **Security**: Environment-based configuration management
+- **Monitoring**: Real-time task status tracking
 
-### **1. [`COMECE_AQUI.md`](COMECE_AQUI.md)** ⭐
-**Tempo: 5 minutos**
+## Architecture
 
-Guia rápido de 3 passos:
-1. Obter token correto
-2. Atualizar no admin
-3. Testar
+- **Django 5.2.8**: Web framework
+- **Celery**: Asynchronous task queue
+- **django-celery-results**: SQL-based task storage (Windows compatible)
+- **PostgreSQL/SQLite**: Database backend
+- **UazAPI**: WhatsApp service provider
 
-✅ **Leia isto primeiro!**
+## Installation
 
----
+### 1. Prerequisites
 
-## 📊 ENTENDA O QUE FOI FEITO
+- Python 3.8+
+- PostgreSQL (recommended) or SQLite
+- Windows 10/11 (for Windows-specific configuration)
 
-### **2. [`RESUMO_VISUAL.md`](RESUMO_VISUAL.md)** 🎨
-**Tempo: 3 minutos**
-
-Antes vs Depois com diagramas visuais:
-- O que era problema
-- Como foi corrigido
-- Arquivos modificados
-- Fluxo visual
-
-### **3. [`RESUMO_MUDANCAS.md`](RESUMO_MUDANCAS.md)** 📋
-**Tempo: 5 minutos**
-
-Detalhes técnicos:
-- Todos os problemas encontrados
-- Soluções implementadas
-- Novos arquivos criados
-- Status de cada componente
-
----
-
-## 🔧 DEBUGGING E TESTES
-
-### **4. [`DEBUG_GUIA.md`](DEBUG_GUIA.md)** 🧪
-**Tempo: 10 minutos (quando precisar testar)**
-
-Como testar cada parte:
-1. Verificar credenciais
-2. Testar obtenção de QR
-3. Testar status de conexão
-4. Acessar no navegador
-5. Troubleshooting completo
-
-**Use quando:** Quiser entender cada etapa do fluxo
-
-### **5. [`ERRO_TOKEN_401.md`](ERRO_TOKEN_401.md)** ⚠️
-**Tempo: 5 minutos (IMPORTANTE)**
-
-**ERRO ENCONTRADO** que precisa corrigir:
-
-Seu token está inválido (401 Unauthorized)
-
-✅ 3 opções de solução incluídas
-
-**Use quando:** Receber erro 401
-
----
-
-## 💼 CASOS DE USO PRÁTICOS
-
-### **6. [`EXEMPLO_MULTIPLAS_INSTANCIAS.md`](EXEMPLO_MULTIPLAS_INSTANCIAS.md)** 👥
-**Tempo: 10 minutos**
-
-Como usar para múltiplos números:
-- Maria: 11 99999-9999
-- João: 85 98888-8888
-- Pedro: 21 97777-7777
-
-Incluindo:
-- Como configurar cada uma
-- Melhorias sugeridas
-- Fluxo multi-instância
-- Exemplos de código
-
-**Use quando:** Quiser escalar para múltiplos usuários
-
----
-
-## 🧪 FERRAMENTAS
-
-### **7. [`test_qr_flow.py`](test_qr_flow.py)** 🔧
-**Tempo: 30 segundos para rodar**
-
-Script de teste automático que:
-- Verifica instância no BD
-- Testa cliente UazAPI
-- Tenta obter QR
-- Verifica conexão
-- **Mostra qual é o erro exato**
-
-**Use quando:** Algo não funcionar
+### 2. Setup
 
 ```bash
-python test_qr_flow.py
+# Clone repository
+git clone <repository-url>
+cd fubog_wpp_trigger
+
+# Create virtual environment
+python -m venv venv
+venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy environment template
+copy .env.example .env
+
+# Edit .env with your configuration
+notepad .env
 ```
 
----
+### 3. Environment Configuration
 
-## 📁 ARQUIVOS MODIFICADOS
+Edit `.env` file with your settings:
+
+```env
+# Django Configuration
+DJANGO_SECRET_KEY=your-secret-key-here
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+# Database Configuration
+DATABASE_URL=sqlite:///db.sqlite3
+
+# UazAPI Configuration (Required)
+UAZAPI_URL=https://servidoruazapidisparo.uazapi.com
+UAZAPI_INSTANCE=your-instance-id-here
+UAZAPI_TOKEN=your-api-token-here
+
+# Celery Configuration (SQL-based)
+CELERY_BROKER_URL=django://
+CELERY_RESULT_BACKEND=django-db
+```
+
+### 4. Database Setup
+
+```bash
+# Run migrations
+python manage.py makemigrations
+python manage.py migrate
+
+# Create superuser
+python manage.py createsuperuser
+
+# Collect static files
+python manage.py collectstatic
+```
+
+## Running on Windows
+
+### **CRITICAL: Windows-Specific Configuration**
+
+Windows requires special Celery configuration to avoid process forking issues:
+
+```bash
+# Start Django development server
+python manage.py runserver
+
+# Start Celery worker (Windows specific - REQUIRED)
+celery -A core worker -l info --pool=solo
+
+# Start Celery beat scheduler (optional, for periodic tasks)
+celery -A core beat -l info --pool=solo
+```
+
+### **Why `--pool=solo` is Required**
+
+Windows doesn't support process forking like Unix systems. The `--pool=solo` flag:
+- Uses threads instead of processes
+- Prevents `WinError 10054` connection issues
+- Ensures compatibility with Windows threading model
+- Maintains task isolation without process overhead
+
+### **Alternative Windows Setup**
+
+For better performance on Windows, you can also use:
+
+```bash
+# Using eventlet pool (requires eventlet installation)
+pip install eventlet
+celery -A core worker -l info --pool=eventlet
+```
+
+## Usage
+
+### 1. Start the Application
+
+Open **three separate terminal windows**:
+
+```bash
+# Terminal 1: Django server
+python manage.py runserver
+
+# Terminal 2: Celery worker
+celery -A core worker -l info --pool=solo
+
+# Terminal 3: Celery beat (optional)
+celery -A core beat -l info --pool=solo
+```
+
+### 2. Access the Application
+
+- Open browser: `http://localhost:8000`
+- Login with Django admin credentials
+- Connect WhatsApp via QR code
+- Add contacts and send bulk messages
+
+### 3. Monitor Tasks
+
+- Task status is displayed in the dashboard
+- Check logs for detailed information
+- Use Django admin to monitor dispatch records
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+python manage.py test
+
+# Run specific test module
+python manage.py test trigger.tests
+
+# Run with coverage (requires coverage.py)
+pip install coverage
+coverage run --source='.' manage.py test
+coverage report
+```
+
+### Code Structure
 
 ```
 trigger/
-├─ services/
-│  └─ uazapi_client.py ✏️ (Lógica QR melhorada)
-├─ views.py ✏️ (Nova view para polling)
-├─ urls.py ✏️ (Nova rota /api/verificar-conexao/)
-└─ templates/
-   └─ trigger/
-      └─ conexao.html ✏️ (Polling JavaScript)
+├── models.py          # Django models (Contato, Disparo, InstanciaZap)
+├── views.py           # Django views (web interface)
+├── tasks.py           # Celery tasks (async processing)
+├── services/
+│   └── uazapi_client.py  # WhatsApp API client
+├── forms.py           # Django forms
+├── tests.py           # Test suite
+└── celery.py          # Celery configuration
 ```
 
-**Todos os arquivos têm comentários explicando as mudanças.**
+## Production Deployment
 
----
+### Environment Variables
 
-## 🎯 MAPA DE LEITURA POR OBJETIVO
+For production, set these environment variables:
 
-### **"Quero começar AGORA"**
-→ Leia: `COMECE_AQUI.md`
+```env
+DEBUG=False
+ALLOWED_HOSTS=yourdomain.com
+DATABASE_URL=postgres://user:pass@host:port/dbname
+UAZAPI_URL=https://your-uazapi-server.com
+UAZAPI_INSTANCE=production-instance
+UAZAPI_TOKEN=production-token
+```
 
-### **"Quero entender o que foi corrigido"**
-→ Leia: `RESUMO_VISUAL.md` → `RESUMO_MUDANCAS.md`
+### Security Considerations
 
-### **"Tenho um erro e preciso corrigir"**
-→ Rode: `python test_qr_flow.py`
-→ Leia: `ERRO_TOKEN_401.md` (se for 401)
-→ Leia: `DEBUG_GUIA.md` (para troubleshooting)
+- Never commit `.env` files to version control
+- Use strong `SECRET_KEY` in production
+- Enable HTTPS with proper SSL certificates
+- Configure firewall rules for database access
+- Monitor Celery logs for errors
 
-### **"Quero escalar para múltiplos números"**
-→ Leia: `EXEMPLO_MULTIPLAS_INSTANCIAS.md`
+### Performance Tuning
 
-### **"Quero testar tudo passo a passo"**
-→ Leia: `DEBUG_GUIA.md`
-→ Rode: `python test_qr_flow.py`
-→ Teste na web: `http://localhost:8000/conectar-whatsapp/`
+- Adjust `CELERY_WORKER_CONCURRENCY` based on CPU cores
+- Configure `CELERY_TASK_RATE_LIMIT` based on API limits
+- Use PostgreSQL for better performance under load
+- Monitor database connection pooling
 
----
+## Troubleshooting
 
-## ⚡ QUICK START (30 segundos)
+### Common Windows Issues
+
+1. **`WinError 10054` Connection Reset**
+   - Solution: Use `--pool=solo` flag
+   - Alternative: Install and use `eventlet` pool
+
+2. **Celery Worker Not Starting**
+   - Check database connection in `.env`
+   - Ensure Django migrations are applied
+   - Verify `django-celery-results` is installed
+
+3. **Tasks Not Processing**
+   - Confirm Celery worker is running
+   - Check task queue in Django admin
+   - Review Celery logs for errors
+
+### Database Issues
 
 ```bash
-# 1. Corrigir token (3 passos em COMECE_AQUI.md)
-
-# 2. Testar
-python test_qr_flow.py
-
-# 3. Se tudo verde:
-python manage.py runserver
-
-# 4. Acessar
-http://localhost:8000/conectar-whatsapp/
+# Reset database (development only)
+rm db.sqlite3
+python manage.py migrate
+python manage.py createsuperuser
 ```
 
----
+### API Connection Issues
 
-## 🆘 PROBLEMAS COMUNS
+- Verify UazAPI credentials in `.env`
+- Check network connectivity to UazAPI server
+- Review API rate limits and quotas
+- Monitor WhatsApp connection status
 
-| Problema | Solução |
-|----------|---------|
-| Erro 401 | Veja `ERRO_TOKEN_401.md` |
-| Erro ao gerar QR | Rode `test_qr_flow.py` |
-| QR não desaparece após escanear | Veja `DEBUG_GUIA.md` → Troubleshooting |
-| Token expirou | Veja `ERRO_TOKEN_401.md` → Opção 1 |
-| Preciso de múltiplos números | Veja `EXEMPLO_MULTIPLAS_INSTANCIAS.md` |
+## Monitoring
 
----
+### Logs
 
-## 📊 DOCUMENTAÇÃO CRIADA
+- Django logs: `logs/django.log`
+- Celery logs: Console output (can be redirected to file)
 
-| Arquivo | Páginas | Tempo Leitura | Objetivo |
-|---------|---------|---------------|----------|
-| COMECE_AQUI.md | 3 | 5 min | Início rápido |
-| RESUMO_VISUAL.md | 4 | 3 min | Visão geral |
-| RESUMO_MUDANCAS.md | 5 | 5 min | Detalhes técnicos |
-| DEBUG_GUIA.md | 6 | 10 min | Testing & troubleshooting |
-| ERRO_TOKEN_401.md | 4 | 5 min | Solução do erro |
-| EXEMPLO_MULTIPLAS_INSTANCIAS.md | 6 | 10 min | Escalabilidade |
-| **TOTAL** | **28 páginas** | **38 min** | **Documentação completa** |
+### Django Admin
 
----
+Access `/admin/` to monitor:
+- Dispatch records (`Disparo` model)
+- Contact list (`Contato` model)
+- WhatsApp instances (`InstanciaZap` model)
+- Celery task results (`django_celery_results`)
 
-## ✅ CHECKLIST
+## API Reference
 
-Antes de começar, verifique:
+### UazApiClient Methods
 
-- [ ] Python 3.8+ instalado
-- [ ] Django rodando
-- [ ] Banco de dados migrado
-- [ ] Instância criada no admin Django
-- [ ] Acesso ao painel UazAPI
-- [ ] Leu `COMECE_AQUI.md`
+- `verificar_status()`: Check WhatsApp connection
+- `obter_qr_code()`: Get QR code for connection
+- `enviar_texto(numero, mensagem)`: Send text message
+- `desconectar_instancia()`: Disconnect WhatsApp
 
----
+### Celery Tasks
 
-## 🎓 O QUE VOCÊ APRENDEU
+- `send_bulk_messages`: Process bulk message sending
+- `enviar_mensagem_broadcast`: Send individual message
+- `check_connection_status`: Monitor WhatsApp status
+- `cleanup_old_disparos`: Database maintenance
 
-✅ Como integrar APIs externas em Django  
-✅ Polling em tempo real com JavaScript  
-✅ Tratamento robusto de erros  
-✅ Logging completo para debug  
-✅ Sincronização BD + API  
-✅ Arquitetura escalável  
+## License
 
----
+Private project - All rights reserved.
 
-## 🚀 PRÓXIMAS ETAPAS
+## Support
 
-Depois que tudo funcionar:
-
-1. **Testar com múltiplos números**
-2. **Implementar dashboard de instâncias**
-3. **Adicionar WebSocket** (mais rápido que polling)
-4. **Criar histórico de conexões**
-5. **Deploy em produção**
-
----
-
-## 💬 RESUMO
-
-Seu sistema de **disparo de mensagens WhatsApp** agora:
-
-✅ Funciona com múltiplas instâncias  
-✅ Tem geração dinâmica de QR Code  
-✅ Detecta conexão em tempo real  
-✅ Sincroniza com banco de dados  
-✅ Tem logging completo  
-✅ É totalmente escalável  
-✅ Está bem documentado  
-
----
-
-**Status:** ✅ PRONTO (após corrigir token)
-
-**Tempo para começar:** 5 minutos (leia COMECE_AQUI.md)
-
-**Próxima ação:** Abra `COMECE_AQUI.md` agora! 👇
-
----
-
-*Documentação criada em: Dezembro 2025*  
-*Versão: 1.0*  
-*Status: Completa e testada*
-
+For technical support:
+1. Check the troubleshooting section
+2. Review application logs
+3. Verify environment configuration
+4. Test with development settings first

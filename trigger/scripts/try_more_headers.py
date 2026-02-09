@@ -14,7 +14,7 @@ if not inst:
 
 token = inst.token
 name = inst.instancia_id
-url = 'https://free.uazapi.com/instance/connect'
+url = 'https://servidoruazapidisparo.uazapi.com/instance/connect'
 headers_to_try = ['token', 'x-token', 'x-api-key', 'X-Access-Token', 'authorization']
 
 payload = {'instanceName': name}

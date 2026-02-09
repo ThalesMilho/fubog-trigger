@@ -16,7 +16,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--apply', action='store_true', help='Salvar id/token retornados no DB')
         parser.add_argument('--instance', type=str, help='UUID da InstanciaZap (campo `id`)')
-        parser.add_argument('--base-url', type=str, default='https://free.uazapi.com', help='Base URL da API')
+        parser.add_argument('--base-url', type=str, default='https://servidoruazapidisparo.uazapi.com', help='Base URL da API')
 
     def handle(self, *args, **options):
         inst = None

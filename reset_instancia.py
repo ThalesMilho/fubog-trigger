@@ -3,7 +3,7 @@ import json
 import time
 
 # --- CONFIGURAÇÃO ---
-BASE_URL = "https://free.uazapi.com"
+BASE_URL = "https://servidoruazapidisparo.uazapi.com"
 # Seu Admin Token (confirmado do print)
 ADMIN_TOKEN = "ZaW1qwTEkuq7Ub1cBUuyMiK5bNSu3nnMQ9Ih7klElc2clSRV8t" 
 INSTANCE_NAME = "FubogSystem"
